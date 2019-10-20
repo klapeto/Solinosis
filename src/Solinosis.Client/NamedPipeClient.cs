@@ -17,12 +17,13 @@ namespace Solinosis.Client
 
 		public void Connect()
 		{
-			var svr = _serviceProvider.GetRequiredService<IMessageHandler>();
+			_serviceProvider.GetRequiredService<IMessageChannel>().Connect();
+			_serviceProvider.GetRequiredService<IMessageHandler>();
 		}
 
 		public void Disconnect()
 		{
-			throw new NotImplementedException();
+			_serviceProvider.GetRequiredService<IMessageChannel>().Disconnect();
 		}
 
 		public T GetServiceProxy<T>() where T : class

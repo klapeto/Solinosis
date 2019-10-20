@@ -21,12 +21,13 @@ namespace Solinosis.Server
 
 		public void Start()
 		{
-			var messageHandler = _serviceProvider.GetRequiredService<IMessageHandler>();
+			_serviceProvider.GetRequiredService<IMessageChannel>().Connect();
+			_serviceProvider.GetRequiredService<IMessageHandler>();
 		}
 
 		public void Stop()
 		{
-			throw new System.NotImplementedException();
+			_serviceProvider.GetRequiredService<IMessageChannel>().Disconnect();
 		}
 	}
 }

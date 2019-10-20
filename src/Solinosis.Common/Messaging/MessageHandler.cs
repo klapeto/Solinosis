@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Solinosis.Common.Interfaces;
+using Solinosis.Common.Pipe;
 
 namespace Solinosis.Common.Messaging
 {
@@ -10,14 +11,16 @@ namespace Solinosis.Common.Messaging
 	{
 		private readonly IServiceProvider _serviceProvider;
 		private readonly IMessageChannel _messageChannel;
+		private readonly NamedPipeConfiguration _configuration;
 		
 		private readonly Dictionary<string, Type> _cachedTypes = new Dictionary<string, Type>();
 
-		public MessageHandler(IServiceProvider serviceProvider, IMessageChannel messageChannel)
+		public MessageHandler(IServiceProvider serviceProvider, IMessageChannel messageChannel, NamedPipeConfiguration configuration)
 		{
 			_serviceProvider = serviceProvider;
 			_messageChannel = messageChannel;
-			
+			_configuration = configuration;
+
 			messageChannel.MessageReceived += MessageChannel_MessageReceived;
 		}
 
@@ -46,21 +49,49 @@ namespace Solinosis.Common.Messaging
 
 			using (var scope = _serviceProvider.CreateScope())
 			{
-				var instance = scope.ServiceProvider.GetRequiredService(type);
-				var request = (Request) message.Payload;
-				var response = Call(type, request.MethodName, request.Arguments, instance);
-			
-				_messageChannel.Broadcast(new Message
+				try
 				{
-					Id = message.Id,
-					ContractName = message.ContractName,
-					Type = MessageType.Response,
-					Payload = new Response
+					if (scope.ServiceProvider.GetRequiredService<ICallContext>() is CallContext context)
 					{
-						Payload = response,
-						RequestId = message.Id
+						context.CallerInfo = message.ClientInfo;
 					}
-				});
+					var instance = scope.ServiceProvider.GetRequiredService(type);
+					var request = (Request) message.Payload;
+					var response = Call(type, request.MethodName, request.Arguments, instance);
+			
+					_messageChannel.Broadcast(new Message
+					{
+						Id = message.Id,
+						ContractName = message.ContractName,
+						Type = MessageType.Response,
+						ClientInfo = _configuration.ClientInfo,
+						Payload = new Response
+						{
+							Payload = response,
+							RequestId = message.Id
+						}
+					});
+				}
+				catch (Exception e)
+				{
+					_messageChannel.Broadcast(new Message
+					{
+						Id = message.Id,
+						ContractName = message.ContractName,
+						Type = MessageType.Response,
+						ClientInfo = _configuration.ClientInfo,
+						Payload = new Response
+						{
+							Payload = new ErrorPayload
+							{
+								Exception = e,
+								Message = e.ToString()
+							},
+							IsError = true,
+							RequestId = message.Id
+						}
+					});
+				}
 			}
 		}
 
@@ -100,6 +131,7 @@ namespace Solinosis.Common.Messaging
 					});
 				try
 				{
+					message.ClientInfo = _configuration.ClientInfo;
 					_messageChannel.MessageReceived += eventHandler;
 					_messageChannel.Broadcast(message);
 					notifier.Wait();

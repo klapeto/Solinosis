@@ -23,6 +23,7 @@ namespace Solinosis.Server
 			serviceCollection.AddSingleton(options);
 			serviceCollection.AddSingleton<IMessageChannel, NamedPipeServerMessageChannel>();
 			serviceCollection.AddTransient<IFormatter, BinaryFormatter>();
+			serviceCollection.AddScoped<ICallContext, CallContext>();
 			serviceCollection.AddTransient<IMethodDispatcher, MethodDispatcher>();
 			serviceCollection.AddTransient<IProxyGenerator, ProxyGenerator>();
 			serviceCollection.AddTransient(typeof(ContractProxyGenerator<>));

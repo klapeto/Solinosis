@@ -8,6 +8,13 @@ namespace Solinosis.Server.Host
 	{
 		public class TestService: ITestService
 		{
+			private ICallContext _callContext;
+
+			public TestService(ICallContext callContext)
+			{
+				_callContext = callContext;
+			}
+
 			public string TestCall(string arg)
 			{
 				Console.WriteLine($"TestCall called: {arg}");

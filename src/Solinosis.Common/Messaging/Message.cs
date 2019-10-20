@@ -11,6 +11,7 @@ namespace Solinosis.Common.Messaging
 		public MessageType Type { get; set; }
 		public object Payload { get; set; }
 
+		public ClientInfo ClientInfo { get; set; }
 
 		public static Message CreateRequest<T>(string methodName, object[] arguments)
 		{

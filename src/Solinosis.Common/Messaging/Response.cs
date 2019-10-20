@@ -6,6 +6,7 @@ namespace Solinosis.Common.Messaging
 	public class Response
 	{
 		public Guid RequestId { get; set; }
+		public bool IsError { get; set; }
 		public object Payload { get; set; }
 	}
 }
