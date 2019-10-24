@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.Serialization;
@@ -10,48 +10,20 @@ using Solinosis.Common.Exceptions;
 using Solinosis.Common.Messaging;
 using Solinosis.Common.Pipe;
 
-namespace Solinosis.Client
+namespace Solinosis.Server
 {
-	public class NamedPipeClient : IDisposable
+	public class NamedPipeServer : IDisposable
 	{
-		private readonly ILogger<NamedPipeClient> _logger;
-		private NamedPipeClientStream _pipe;
-		private readonly NamedPipeConfiguration _configuration;
+		public event EventHandler<ClientConnectedEventArgs> ClientConnected;
+		public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
+		private NamedPipeServerStream _pipe;
+		public ClientInfo ConnectedClient { get; private set; }
+
 		private readonly IFormatter _formatter;
+		private readonly NamedPipeConfiguration _configuration;
+		private readonly ILogger<NamedPipeServer> _logger;
 
-		public NamedPipeClient(NamedPipeConfiguration configuration, IFormatter formatter, ILogger<NamedPipeClient> logger)
-		{
-			_configuration = configuration;
-			_formatter = formatter;
-			_logger = logger;
-		}
-
-		public void SendMessage(Message message)
-		{
-			_formatter.Serialize(_pipe, message);
-		}
-
-		public void Disconnect()
-		{
-			Regenerate();
-		}
-		
-		public async Task<Message> GetNextMessage(CancellationToken cancellationToken)
-		{
-			while (!cancellationToken.IsCancellationRequested)
-				try
-				{
-					return (Message) _formatter.Deserialize(_pipe);
-				}
-				catch (Exception e)
-				{
-					_logger.LogWarning(e, "IO Exception when waiting for client");
-					Regenerate();
-					await ConnectAsync(cancellationToken);
-				}
-
-			throw new OperationCanceledException();
-		}
+		private object _writeLocker = new object();
 
 		private void Regenerate()
 		{
@@ -65,17 +37,51 @@ namespace Solinosis.Client
 			}
 
 			_pipe?.Dispose();
-			_pipe = new NamedPipeClientStream(".", _configuration.PipeName, PipeDirection.InOut,
-				PipeOptions.Asynchronous);
+			ConnectedClient = null;
+			_pipe = new NamedPipeServerStream(_configuration.PipeName, PipeDirection.InOut,
+				_configuration.MaxServerInstances,
+				PipeTransmissionMode.Byte, PipeOptions.Asynchronous, _configuration.InBufferSize,
+				_configuration.OutBufferSize);
 		}
 
-		public async Task ConnectAsync(CancellationToken cancellationToken)
+		public void SendMessage(Message message)
+		{
+			lock (_writeLocker)
+			{
+				_formatter.Serialize(_pipe, message);
+			}
+		}
+
+		public async Task<Message> GetNextMessage(CancellationToken cancellationToken)
 		{
 			while (!cancellationToken.IsCancellationRequested)
 				try
 				{
-					await _pipe.ConnectAsync(cancellationToken);
-					_formatter.Serialize(_pipe, Message.CreateNegotiation(_configuration.ClientInfo));
+					return (Message) _formatter.Deserialize(_pipe);
+				}
+				catch (Exception e)
+				{
+					_logger.LogWarning(e, "IO Exception when waiting for client");
+					if (ConnectedClient != null)
+						ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs(ConnectedClient));
+					Regenerate();
+					await WaitForClientAsync(cancellationToken);
+				}
+
+			throw new OperationCanceledException();
+		}
+
+		public void Disconnect()
+		{
+			Regenerate();
+		}
+
+		private async Task WaitForClientAsync(CancellationToken cancellationToken)
+		{
+			while (!cancellationToken.IsCancellationRequested)
+				try
+				{
+					await _pipe.WaitForConnectionAsync(cancellationToken);
 					var negotiationMessage = (Message) _formatter.Deserialize(_pipe);
 					if (negotiationMessage.Type != MessageType.Negotiation)
 					{
@@ -91,15 +97,26 @@ namespace Solinosis.Client
 					}
 					else
 					{
+						ConnectedClient = negotiationMessage.SenderInfo;
 						_formatter.Serialize(_pipe, Message.CreateNegotiation(_configuration.ClientInfo));
+						ClientConnected?.Invoke(this, new ClientConnectedEventArgs(ConnectedClient));
 						return;
 					}
 				}
-				catch (Exception e)
+				catch (IOException e)
 				{
 					_logger.LogWarning(e, "IO Exception when waiting for client");
 					Regenerate();
 				}
+		}
+
+		public NamedPipeServer(IFormatter formatter, NamedPipeConfiguration configuration,
+			ILogger<NamedPipeServer> logger)
+		{
+			_formatter = formatter;
+			_configuration = configuration;
+			_logger = logger;
+			Regenerate();
 		}
 
 		public void Dispose()
@@ -112,7 +129,9 @@ namespace Solinosis.Client
 			{
 				// ignored
 			}
+
 			_pipe?.Dispose();
+			ConnectedClient = null;
 		}
 	}
 }

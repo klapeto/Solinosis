@@ -1,7 +1,9 @@
+using System.Threading.Tasks;
+
 namespace Solinosis.Common.Interfaces
 {
 	public interface ITestService
 	{
-		string TestCall(string arg);
+		Task<string> TestCall(string arg);
 	}
 }

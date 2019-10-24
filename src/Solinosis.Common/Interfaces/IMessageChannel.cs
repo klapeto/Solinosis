@@ -10,11 +10,7 @@ namespace Solinosis.Common.Interfaces
 		event EventHandler<MessageReceivedEventArgs> MessageReceived;
 
 		void Broadcast(Message message);
-		Task BroadcastAsync(Message message, CancellationToken cancellationToken);
-
 		void Connect();
-		Task ConnectAsync(CancellationToken cancellationToken);
 		void Disconnect();
-		Task DisconnectAsync(CancellationToken cancellationToken);
 	}
 }

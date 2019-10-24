@@ -11,14 +11,15 @@ namespace Solinosis.Common.Pipe
 			PipeName = pipeName;
 			ClientInfo = new ClientInfo
 			{
-				Id = Guid.NewGuid()
+				Id = Guid.NewGuid(),
+				Name = ""
 			};
 		}
 
 		public string PipeName { get; }
 		public int MaxServerInstances { get; set; } = 5;
-		public int InBufferSize { get; set; }
-		public int OutBufferSize { get; set; }
+		public int InBufferSize { get; set; } = 8192;
+		public int OutBufferSize { get; set; } = 8192;
 		
 		public ClientInfo ClientInfo { get; }
 	}

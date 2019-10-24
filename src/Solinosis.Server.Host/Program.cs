@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Solinosis.Common.Interfaces;
 
@@ -8,17 +9,22 @@ namespace Solinosis.Server.Host
 	{
 		public class TestService: ITestService
 		{
-			private ICallContext _callContext;
+			private readonly ICallContext _callContext;
 
 			public TestService(ICallContext callContext)
 			{
 				_callContext = callContext;
 			}
 
-			public string TestCall(string arg)
+			public Task<string> TestCall(string arg)
 			{
-				Console.WriteLine($"TestCall called: {arg}");
-				return $"TestCall received: {arg}";
+				return Task.Run(async () =>
+				{
+					Console.WriteLine($"TestCall called from {_callContext.CallerInfo.Name}: {arg}");
+					var str = await _callContext.GetCallbackChannel<ITestCallbackService>().TestCallbackAsync("Hello!");
+					Console.WriteLine($"Callback from {_callContext.CallerInfo.Name} returned: {str}");
+					return $"TestCall received: {arg}";
+				});
 			}
 		}
 		
@@ -31,7 +37,6 @@ namespace Solinosis.Server.Host
 
 			var serverHost = new NamedPipeServerHost(servicesCollection.BuildServiceProvider());
 			serverHost.Start();
-			var reps = serverHost.GetCallbackProxy<ITestCallbackService>().TestCallback("Hello");
 			Console.Read();
 		}
 	}

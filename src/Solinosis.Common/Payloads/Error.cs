@@ -1,9 +1,9 @@
 using System;
 
-namespace Solinosis.Common.Messaging
+namespace Solinosis.Common.Payloads
 {
 	[Serializable]
-	public class ErrorPayload
+	public class Error: Response
 	{
 		public string Message { get; set; }
 		public Exception Exception { get; set; }
