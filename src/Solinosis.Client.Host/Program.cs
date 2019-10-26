@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO.Pipes;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Solinosis.Common.Interfaces;
 
@@ -21,26 +22,26 @@ namespace Solinosis.Client.Host
 				Console.WriteLine($"Callback: {arg}");
 				return $"Callback: {arg}";
 			}
+
+			public Task<string> TestCallbackAsync(string arg)
+			{
+				return Task.FromResult("Hello From Async");
+			}
 		}
 
 		private static void Main(string[] args)
 		{
-			var client = new NamedPipeClientStream(".", "KKlapeto",PipeDirection.InOut);
+			var servicesCollection = new ServiceCollection();
+			servicesCollection.AddNamedPipeClient("KKlapeto", configuration =>
+					{
+						configuration.ClientInfo.Name = $"Client: {Guid.NewGuid()}";
+					})
+				.AddService<ITestService>()
+				.AddCallbackService<ITestCallbackService, Callback>();
+
+			var client = new NamedPipeClientHost(servicesCollection.BuildServiceProvider());
 			client.Connect();
-			client.Close();
-			client.Connect();
-			
-//			var servicesCollection = new ServiceCollection();
-//			servicesCollection.AddNamedPipeClient("KKlapeto", configuration =>
-//					{
-//						configuration.ClientInfo.Name = "Client #1";
-//					})
-//				.AddService<ITestService>()
-//				.AddCallbackService<ITestCallbackService, Callback>();
-//
-//			var client = new NamedPipeClient(servicesCollection.BuildServiceProvider());
-//			client.Connect();
-//			var res = client.GetServiceProxy<ITestService>().TestCall("Hahaha");
+			var res = client.GetServiceProxy<ITestService>().TestCall("Hahaha");
 			Console.Read();
 		}
 	}

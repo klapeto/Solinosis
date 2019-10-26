@@ -32,7 +32,6 @@ namespace Solinosis.Server
 			return this;
 		}
 		
-		
 		public INamedPipeServerBuilder AddCallback<TInterface>() where TInterface : class
 		{
 			_serviceCollection.AddScoped(provider => provider.GetRequiredService<ContractProxyGenerator<TInterface>>().Create());

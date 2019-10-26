@@ -1,34 +1,34 @@
 using System;
-using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
+using Solinosis.Client.Interfaces;
 using Solinosis.Common.Interfaces;
-using Solinosis.Server.Interfaces;
 
-namespace Solinosis.Server
+namespace Solinosis.Client
 {
-	public class NamedPipeServerHost: INamedPipeServerHost
+	public class NamedPipeClientHost: INamedPipeClient
 	{
 		private readonly IServiceProvider _serviceProvider;
 
-		public NamedPipeServerHost(IServiceProvider serviceProvider)
+		public NamedPipeClientHost(IServiceProvider serviceProvider)
 		{
 			_serviceProvider = serviceProvider;
 		}
 
-		public T GetCallbackProxy<T>() where T : class
-		{
-			return _serviceProvider.GetRequiredService<T>();
-		}
 
-		public void Start()
+		public void Connect()
 		{
 			_serviceProvider.GetRequiredService<IMessageChannel>().Connect();
 			_serviceProvider.GetRequiredService<IMessageHandler>();
 		}
 
-		public void Stop()
+		public void Disconnect()
 		{
 			_serviceProvider.GetRequiredService<IMessageChannel>().Disconnect();
+		}
+
+		public T GetServiceProxy<T>() where T : class
+		{
+			return (T)_serviceProvider.GetService(typeof(T));
 		}
 	}
 }

@@ -21,7 +21,8 @@ namespace Solinosis.Client
 			configureOptions?.Invoke(options);
 			serviceCollection.AddLogging();
 			serviceCollection.AddSingleton(options);
-			serviceCollection.AddSingleton<IMessageChannel, NamedPipeClientMessageChannel>();
+			serviceCollection.AddSingleton<IMessageChannel, ClientMessageChannel>();
+			serviceCollection.AddSingleton<NamedPipeClient>();
 			serviceCollection.AddTransient<IFormatter, BinaryFormatter>();
 			serviceCollection.AddScoped<ICallContext, CallContext>();
 			serviceCollection.AddTransient<IMethodDispatcher, MethodDispatcher>();
