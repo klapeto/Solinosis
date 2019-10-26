@@ -18,6 +18,7 @@ namespace Solinosis.Client
 		private NamedPipeClientStream _pipe;
 		private readonly NamedPipeConfiguration _configuration;
 		private readonly IFormatter _formatter;
+		private readonly object _locker = new object();
 
 		public NamedPipeClient(NamedPipeConfiguration configuration, IFormatter formatter, ILogger<NamedPipeClient> logger)
 		{
@@ -28,7 +29,10 @@ namespace Solinosis.Client
 
 		public void SendMessage(Message message)
 		{
-			_formatter.Serialize(_pipe, message);
+			lock (_locker)
+			{
+				_formatter.Serialize(_pipe, message);
+			}
 		}
 
 		public void Disconnect()
@@ -41,6 +45,7 @@ namespace Solinosis.Client
 			while (!cancellationToken.IsCancellationRequested)
 				try
 				{
+					await ConnectAsync(cancellationToken);
 					return (Message) _formatter.Deserialize(_pipe);
 				}
 				catch (Exception e)
@@ -74,6 +79,7 @@ namespace Solinosis.Client
 			while (!cancellationToken.IsCancellationRequested)
 				try
 				{
+					if (_pipe.IsConnected) return;
 					await _pipe.ConnectAsync(cancellationToken);
 					_formatter.Serialize(_pipe, Message.CreateNegotiation(_configuration.ClientInfo));
 					var negotiationMessage = (Message) _formatter.Deserialize(_pipe);

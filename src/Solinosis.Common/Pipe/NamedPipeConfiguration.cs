@@ -17,7 +17,7 @@ namespace Solinosis.Common.Pipe
 		}
 
 		public string PipeName { get; }
-		public int MaxServerInstances { get; set; } = 5;
+		public int MaxServerInstances { get; set; } = 1;
 		public int InBufferSize { get; set; } = 8192;
 		public int OutBufferSize { get; set; } = 8192;
 		

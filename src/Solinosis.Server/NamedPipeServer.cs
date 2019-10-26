@@ -1,8 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -23,7 +23,7 @@ namespace Solinosis.Server
 		private readonly NamedPipeConfiguration _configuration;
 		private readonly ILogger<NamedPipeServer> _logger;
 
-		private object _writeLocker = new object();
+		private readonly object _writeLocker = new object();
 
 		private void Regenerate()
 		{
@@ -57,7 +57,8 @@ namespace Solinosis.Server
 			while (!cancellationToken.IsCancellationRequested)
 				try
 				{
-					return (Message) _formatter.Deserialize(_pipe);
+					await WaitForClientAsync(cancellationToken);
+					return await Task.Run(() => (Message) _formatter.Deserialize(_pipe), cancellationToken);
 				}
 				catch (Exception e)
 				{
@@ -81,24 +82,26 @@ namespace Solinosis.Server
 			while (!cancellationToken.IsCancellationRequested)
 				try
 				{
+					if (_pipe.IsConnected) return;
 					await _pipe.WaitForConnectionAsync(cancellationToken);
 					var negotiationMessage = (Message) _formatter.Deserialize(_pipe);
 					if (negotiationMessage.Type != MessageType.Negotiation)
 					{
-						_formatter.Serialize(_pipe,
-							Message.CreateError(
-								_configuration.ClientInfo,
-								negotiationMessage.SenderInfo,
-								negotiationMessage.Id,
-								new NegotiationException(
-									$"Expected a negotiation message but got: {Enum.GetName(typeof(MessageType), negotiationMessage.Type)}"),
-								null));
+						_logger.LogTrace("Negotiation message not correct type");
+						SendMessage(Message.CreateError(
+							_configuration.ClientInfo,
+							negotiationMessage.SenderInfo,
+							negotiationMessage.Id,
+							new NegotiationException(
+								$"Expected a negotiation message but got: {Enum.GetName(typeof(MessageType), negotiationMessage.Type)}"),
+							null));
 						Regenerate();
 					}
 					else
 					{
+						_logger.LogTrace("Received negotiation: {@negotiation}", negotiationMessage);
 						ConnectedClient = negotiationMessage.SenderInfo;
-						_formatter.Serialize(_pipe, Message.CreateNegotiation(_configuration.ClientInfo));
+						SendMessage(Message.CreateNegotiation(_configuration.ClientInfo));
 						ClientConnected?.Invoke(this, new ClientConnectedEventArgs(ConnectedClient));
 						return;
 					}

@@ -1,19 +1,23 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Solinosis.Common.Interfaces;
+using Solinosis.Server.Interfaces;
 
 namespace Solinosis.Server.Host
 {
 	internal class Program
 	{
-		public class TestService: ITestService
+		public class TestService : ITestService
 		{
 			private readonly ICallContext _callContext;
+			private readonly IConnectedClientsState _connectedClients;
 
-			public TestService(ICallContext callContext)
+			public TestService(ICallContext callContext, IConnectedClientsState connectedClients)
 			{
 				_callContext = callContext;
+				_connectedClients = connectedClients;
 			}
 
 			public Task<string> TestCall(string arg)
@@ -27,10 +31,15 @@ namespace Solinosis.Server.Host
 				});
 			}
 		}
-		
+
 		private static void Main(string[] args)
 		{
 			var servicesCollection = new ServiceCollection();
+			servicesCollection.AddLogging(builder =>
+			{
+				builder.AddConsole();
+				builder.AddFilter(level => true);
+			});
 			servicesCollection.AddNamedPipeServer("KKlapeto")
 				.AddService<ITestService, TestService>()
 				.AddCallback<ITestCallbackService>();
